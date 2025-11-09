@@ -25,7 +25,7 @@ app.use((req, res, next) => {
   const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://your-frontend-app.vercel.app",
+    "https://ai-recommendation-app-zhyc.vercel.app",
     /\.vercel\.app$/
   ];
   const origin = req.headers.origin;
