@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import { connectDB } from "../config/db.js";
 import authRoutes from "../routes/authRoutes.js";
 import recommendationRoutes from "../routes/recommendationRoutes.js";
@@ -67,8 +68,32 @@ app.use("/api/auth", authRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/products", productRoutes);
 
+// Health check endpoint (doesn't require DB)
 app.get("/", (req, res) => {
-  res.status(200).json({ message: "Server running fine ✅" });
+  res.status(200).json({ 
+    message: "Server running fine ✅",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Database health check endpoint
+app.get("/health", async (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const states = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting"
+  };
+  
+  res.status(dbState === 1 ? 200 : 503).json({
+    status: dbState === 1 ? "healthy" : "unhealthy",
+    database: states[dbState] || "unknown",
+    hasMONGO_URI: !!process.env.MONGO_URI,
+    hasJWT_SECRET: !!process.env.JWT_SECRET,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // -------------------- Error Handling Middleware --------------------
