@@ -73,15 +73,30 @@ app.get("/", (req, res) => {
 
 // -------------------- Error Handling Middleware --------------------
 app.use((err, req, res, next) => {
-  console.error("❌ Unhandled error:", err.stack || err);
+  // Log full error details
+  console.error("❌ Unhandled error:", {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body
+  });
   
   // Set CORS headers even on errors
   setCORSHeaders(req, res);
   
-  res.status(err.status || 500).json({
-    message: err.message || "Internal server error",
-    ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
-  });
+  // Don't send stack trace in production
+  const errorResponse = {
+    message: err.message || "Internal server error"
+  };
+  
+  // Add more details in development
+  if (process.env.NODE_ENV !== "production") {
+    errorResponse.stack = err.stack;
+    errorResponse.path = req.path;
+  }
+  
+  res.status(err.status || 500).json(errorResponse);
 });
 
 // -------------------- 404 Handler --------------------
