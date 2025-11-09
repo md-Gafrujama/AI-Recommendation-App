@@ -28,12 +28,14 @@ export const connectDB = async () => {
   console.log("🔄 Attempting to connect to MongoDB...");
   
   connectionPromise = mongoose.connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 10000, // 10 seconds timeout
+    serverSelectionTimeoutMS: 15000, // 15 seconds timeout for serverless
     socketTimeoutMS: 45000,
-    maxPoolSize: 10, // Maintain up to 10 socket connections
-    minPoolSize: 1,
-    bufferCommands: false, // Disable mongoose buffering
-    bufferMaxEntries: 0, // Disable mongoose buffering
+    connectTimeoutMS: 15000, // 15 seconds to establish connection
+    maxPoolSize: 1, // For serverless, use smaller pool
+    minPoolSize: 0, // Allow no connections when idle
+    bufferCommands: false, // Disable mongoose buffering (critical for serverless)
+    retryWrites: true,
+    w: 'majority',
   })
     .then(() => {
       isConnecting = false;

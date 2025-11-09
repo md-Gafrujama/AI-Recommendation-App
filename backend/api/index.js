@@ -87,13 +87,60 @@ app.get("/health", async (req, res) => {
     3: "disconnecting"
   };
   
-  res.status(dbState === 1 ? 200 : 503).json({
+  const healthData = {
     status: dbState === 1 ? "healthy" : "unhealthy",
     database: states[dbState] || "unknown",
     hasMONGO_URI: !!process.env.MONGO_URI,
     hasJWT_SECRET: !!process.env.JWT_SECRET,
+    mongoURIPreview: process.env.MONGO_URI 
+      ? `${process.env.MONGO_URI.substring(0, 20)}...${process.env.MONGO_URI.substring(process.env.MONGO_URI.length - 10)}`
+      : "not set",
     timestamp: new Date().toISOString()
-  });
+  };
+  
+  res.status(dbState === 1 ? 200 : 503).json(healthData);
+});
+
+// Diagnostic endpoint to test database connection
+app.get("/api/test-db", async (req, res) => {
+  setCORSHeaders(req, res);
+  
+  const diagnostic = {
+    hasMONGO_URI: !!process.env.MONGO_URI,
+    mongoURILength: process.env.MONGO_URI?.length || 0,
+    mongoURIPreview: process.env.MONGO_URI 
+      ? `${process.env.MONGO_URI.substring(0, 30)}...` 
+      : "not set",
+    currentState: mongoose.connection.readyState,
+    stateName: {
+      0: "disconnected",
+      1: "connected",
+      2: "connecting",
+      3: "disconnecting"
+    }[mongoose.connection.readyState],
+    timestamp: new Date().toISOString()
+  };
+  
+  // Try to connect if not connected
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      diagnostic.connectionAttempt = "starting...";
+      await connectDB();
+      diagnostic.connectionAttempt = "success";
+      diagnostic.finalState = mongoose.connection.readyState;
+    } catch (error) {
+      diagnostic.connectionAttempt = "failed";
+      diagnostic.error = {
+        message: error.message,
+        name: error.name,
+        code: error.code
+      };
+    }
+  } else {
+    diagnostic.connectionAttempt = "already connected";
+  }
+  
+  res.status(200).json(diagnostic);
 });
 
 // -------------------- Error Handling Middleware --------------------

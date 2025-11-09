@@ -43,16 +43,36 @@ export const checkDBConnection = async (req, res, next) => {
     } catch (error) {
       console.error("❌ Failed to connect to database:", {
         message: error.message,
+        name: error.name,
+        code: error.code,
         hasMONGO_URI: !!process.env.MONGO_URI,
+        mongoURILength: process.env.MONGO_URI?.length || 0,
         state: mongoose.connection.readyState
       });
+      
+      // Determine the specific issue
+      let hint = "Unknown error";
+      if (!process.env.MONGO_URI) {
+        hint = "MONGO_URI environment variable is missing. Add it in Vercel dashboard → Settings → Environment Variables";
+      } else if (error.name === "MongoServerSelectionError" || error.code === "ENOTFOUND") {
+        hint = "Cannot reach MongoDB server. Check: 1) MongoDB Atlas IP whitelist (allow 0.0.0.0/0 for Vercel), 2) Connection string format";
+      } else if (error.name === "MongoAuthenticationError") {
+        hint = "MongoDB authentication failed. Check username/password in connection string";
+      } else if (error.message?.includes("timeout")) {
+        hint = "Connection timeout. MongoDB server may be unreachable or IP not whitelisted";
+      } else {
+        hint = `Connection failed: ${error.message}. Check Vercel logs for details.`;
+      }
       
       // Return detailed error for debugging
       return res.status(503).json({ 
         message: "Database connection failed. Please check server configuration.",
         error: error.message || "Database not connected",
+        errorName: error.name,
+        errorCode: error.code,
         state: mongoose.connection.readyState,
-        hint: process.env.MONGO_URI ? "Connection string exists but connection failed" : "MONGO_URI environment variable is missing"
+        hint: hint,
+        troubleshooting: "Visit /api/test-db endpoint for detailed diagnostics"
       });
     }
   }
