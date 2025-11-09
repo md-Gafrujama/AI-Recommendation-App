@@ -15,24 +15,42 @@ const __dirname = path.dirname(__filename);
 // Load .env from parent folder (backend/.env)
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB (non-blocking for Vercel)
+connectDB().catch((err) => {
+  console.error("❌ Database connection error:", err);
+  // Don't exit on Vercel - let it retry
+  if (process.env.NODE_ENV === "production") {
+    console.warn("⚠️ Continuing without DB connection (will retry on next request)");
+  }
+});
 
 const app = express();
 
-// -------------------- CORS --------------------
-app.use((req, res, next) => {
+// -------------------- CORS Helper --------------------
+const allowedOrigins = [
+  "https://ai-recommendation-app-zhyc.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000"
+];
+
+const setCORSHeaders = (req, res) => {
   const origin = req.headers.origin;
-  
-  // Allow localhost and all vercel.app domains
-  if (origin && (origin.includes('localhost') || origin.endsWith('.vercel.app'))) {
+  if (allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
-  
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+};
+
+// -------------------- CORS (Must be first) --------------------
+app.use((req, res, next) => {
+  setCORSHeaders(req, res);
   
+  // Handle preflight requests
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -51,6 +69,25 @@ app.use("/api/products", productRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "Server running fine ✅" });
+});
+
+// -------------------- Error Handling Middleware --------------------
+app.use((err, req, res, next) => {
+  console.error("❌ Unhandled error:", err.stack || err);
+  
+  // Set CORS headers even on errors
+  setCORSHeaders(req, res);
+  
+  res.status(err.status || 500).json({
+    message: err.message || "Internal server error",
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
+  });
+});
+
+// -------------------- 404 Handler --------------------
+app.use((req, res) => {
+  setCORSHeaders(req, res);
+  res.status(404).json({ message: "Route not found" });
 });
 
 // -------------------- Local + Vercel Compatibility --------------------
