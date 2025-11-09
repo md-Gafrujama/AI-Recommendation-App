@@ -22,29 +22,21 @@ const app = express();
 
 // -------------------- CORS --------------------
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://ai-recommendation-app-zhyc.vercel.app",
-    /\.vercel\.app$/
-  ];
   const origin = req.headers.origin;
   
-  // Check if origin matches allowed origins or patterns
-  const isAllowed = allowedOrigins.some(allowed => {
-    if (typeof allowed === 'string') {
-      return allowed === origin;
-    }
-    return allowed.test(origin);
-  });
-  
-  if (isAllowed) {
+  // Allow localhost and all vercel.app domains
+  if (origin && (origin.includes('localhost') || origin.endsWith('.vercel.app'))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
+  
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  
   next();
 });
 
