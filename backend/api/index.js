@@ -16,15 +16,6 @@ const __dirname = path.dirname(__filename);
 // Load .env from parent folder (backend/.env)
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-// Connect to MongoDB (non-blocking for Vercel)
-connectDB().catch((err) => {
-  console.error("❌ Database connection error:", err);
-  // Don't exit on Vercel - let it retry
-  if (process.env.NODE_ENV === "production") {
-    console.warn("⚠️ Continuing without DB connection (will retry on next request)");
-  }
-});
-
 const app = express();
 
 // -------------------- CORS Helper --------------------

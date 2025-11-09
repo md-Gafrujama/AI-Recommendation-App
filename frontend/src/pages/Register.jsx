@@ -33,8 +33,29 @@ export default function Register() {
       toast.success("Account created successfully 🎉");
       navigate("/dashboard");
     } catch (err) {
-      const msg = err.response?.data?.message || "Registration failed";
-      toast.error(msg);
+      const errorData = err.response?.data || {};
+      const errorMessage = errorData.message || errorData.error || "Registration failed";
+      const hint = errorData.hint || "";
+      const solution = errorData.solution || "";
+      
+      // Log full error details for debugging
+      console.error("Registration error:", {
+        message: errorMessage,
+        hint: hint,
+        solution: solution,
+        fullError: errorData
+      });
+      
+      // Show user-friendly error with hint if available
+      if (hint && hint.includes("MongoDB Atlas")) {
+        toast.error(`${errorMessage}\n\n${hint}\n\nCheck console for fix steps.`, {
+          duration: 8000,
+        });
+      } else {
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
+      }
     } finally {
       setLoading(false);
     }

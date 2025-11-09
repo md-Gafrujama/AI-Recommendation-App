@@ -1,18 +1,15 @@
 import mongoose from "mongoose";
 
-let isConnecting = false;
 let connectionPromise = null;
 
 export const connectDB = async () => {
   // If already connected, return
   if (mongoose.connection.readyState === 1) {
-    console.log("✅ MongoDB already connected");
     return mongoose.connection;
   }
 
   // If already connecting, return the existing promise
-  if (isConnecting && connectionPromise) {
-    console.log("⏳ MongoDB connection in progress, waiting...");
+  if (connectionPromise) {
     return connectionPromise;
   }
 
@@ -23,42 +20,46 @@ export const connectDB = async () => {
     throw error;
   }
 
+  // Clean up any existing connection that's in a bad state
+  if (mongoose.connection.readyState === 2 || mongoose.connection.readyState === 3) {
+    try {
+      await mongoose.connection.close();
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+  }
+
   // Start connection
-  isConnecting = true;
-  console.log("🔄 Attempting to connect to MongoDB...");
+  console.log("🔄 Connecting to MongoDB...");
+  console.log("📋 Connection details:", {
+    hasURI: !!process.env.MONGO_URI,
+    uriLength: process.env.MONGO_URI?.length || 0,
+    uriStart: process.env.MONGO_URI?.substring(0, 30) || "N/A"
+  });
   
   connectionPromise = mongoose.connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 15000, // 15 seconds timeout for serverless
+    serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
-    connectTimeoutMS: 15000, // 15 seconds to establish connection
-    maxPoolSize: 1, // For serverless, use smaller pool
-    minPoolSize: 0, // Allow no connections when idle
-    bufferCommands: false, // Disable mongoose buffering (critical for serverless)
+    connectTimeoutMS: 10000,
+    maxPoolSize: 1,
+    minPoolSize: 0,
+    bufferCommands: false,
     retryWrites: true,
-    w: 'majority',
   })
     .then(() => {
-      isConnecting = false;
-      connectionPromise = null;
       console.log("✅ MongoDB connected successfully");
+      connectionPromise = null;
       return mongoose.connection;
     })
     .catch((error) => {
-      isConnecting = false;
       connectionPromise = null;
       console.error("❌ DB connection failed:", {
         message: error.message,
         name: error.name,
         code: error.code,
-        hasMONGO_URI: !!process.env.MONGO_URI,
-        mongoURILength: process.env.MONGO_URI?.length || 0
+        stack: error.stack?.substring(0, 200)
       });
-      
-      // Only exit in development
-      if (process.env.NODE_ENV !== "production") {
-        process.exit(1);
-      }
-      
       throw error;
     });
 

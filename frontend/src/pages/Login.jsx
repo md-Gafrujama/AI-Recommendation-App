@@ -33,8 +33,29 @@ export default function Login() {
 
       navigate("/dashboard");
     } catch (err) {
-      console.error("Login error:", err.response?.data || err.message);
-      toast.error(err.response?.data?.message || "Invalid credentials");
+      const errorData = err.response?.data || {};
+      const errorMessage = errorData.message || errorData.error || "Login failed";
+      const hint = errorData.hint || "";
+      const solution = errorData.solution || "";
+      
+      // Log full error details for debugging
+      console.error("Login error:", {
+        message: errorMessage,
+        hint: hint,
+        solution: solution,
+        fullError: errorData
+      });
+      
+      // Show user-friendly error with hint if available
+      if (hint && hint.includes("MongoDB Atlas")) {
+        toast.error(`${errorMessage}\n\n${hint}\n\nCheck console for fix steps.`, {
+          duration: 8000,
+        });
+      } else {
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
+      }
     } finally {
       setLoading(false);
     }
